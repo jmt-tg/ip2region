@@ -14,36 +14,45 @@ import (
 
 var port = flag.String("p", "8080", "port")
 
+// 中国大陆的省份，不包括香港","澳门","台湾
+var chinaInlandProvince = []string{
+	"河北", "山西", "黑龙江", "吉林", "辽宁", "江苏", "浙江", "安徽", "福建", "江西", "山东", "河南", "湖北", "湖南", "广东", "海南", "四川", "贵州", "云南", "陕西", "甘肃", "青海", "内蒙古", "广西", "西藏", "宁夏", "新疆", "北京", "天津", "上海", "重庆",
+}
+
+func getRegion(context *gin.Context) (bool, Obj) {
+	var cliIp string
+	if context.GetHeader("X-REAL-IP") != "" {
+		cliIp = context.GetHeader("X-REAL-IP")
+	} else if context.GetHeader("X-FORWARDED-FOR") != "" {
+		cliIp = context.GetHeader("X-FORWARDED-FOR")
+	} else {
+		cliIp = context.ClientIP()
+	}
+	// 去除端口
+	cliIp = strings.Split(cliIp, ":")[0]
+	region := Ip2Region(cliIp)
+	// 中国大陆的省份，不包括香港","澳门","台湾
+	isChainInland := false
+	for _, province := range chinaInlandProvince {
+		if strings.Contains(region.Province, province) {
+			isChainInland = true
+			break
+		}
+	}
+	return isChainInland, region
+}
+
 func main() {
 	flag.Parse()
 	engine := gin.Default()
 	engine.GET("/", func(context *gin.Context) {
-		var cliIp string
-		if context.GetHeader("X-REAL-IP") != "" {
-			cliIp = context.GetHeader("X-REAL-IP")
-		} else if context.GetHeader("X-FORWARDED-FOR") != "" {
-			cliIp = context.GetHeader("X-FORWARDED-FOR")
-		} else {
-			cliIp = context.ClientIP()
-		}
-		// 去除端口
-		cliIp = strings.Split(cliIp, ":")[0]
-		region := Ip2Region(cliIp)
-		if region.Country == "中国" {
-			context.JSON(200, gin.H{
-				"code":    0,
-				"msg":     "success",
-				"data":    region,
-				"isChina": true,
-			})
-		} else {
-			context.JSON(200, gin.H{
-				"code":    1,
-				"msg":     "success",
-				"data":    region,
-				"isChina": false,
-			})
-		}
+		isChainInland, region := getRegion(context)
+		context.JSON(200, gin.H{
+			"code":    0,
+			"msg":     "success",
+			"data":    region,
+			"isChina": isChainInland,
+		})
 	})
 	fmt.Printf("listen on http://127.0.0.1:%s\n", *port)
 	engine.Run(":" + *port)
