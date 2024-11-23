@@ -5,4 +5,5 @@ linux:
 
 docker:
 	cd deploy && \
-	docker build --platform linux/amd64 -t ip2region:latest .
+	docker build --platform linux/amd64 -t ip2region-go:latest .
+	docker tag ip2region-go:latest harbor.jimatongim.com/jmtim/ip2region-go:latest && docker push harbor.jimatongim.com/jmtim/ip2region-go:latest
